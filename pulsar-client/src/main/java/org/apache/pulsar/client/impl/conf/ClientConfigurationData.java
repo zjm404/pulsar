@@ -53,12 +53,12 @@ public class ClientConfigurationData implements Serializable, Cloneable {
     @ApiModelProperty(
             name = "serviceUrl",
             value = "Pulsar cluster HTTP URL to connect to a broker."
-    )
+    )//broker 或 discovery-service 或 pulsar-proxy url
     private String serviceUrl;
     @ApiModelProperty(
             name = "serviceUrlProvider",
             value = "The implementation class of ServiceUrlProvider used to generate ServiceUrl."
-    )
+    )//provider 动态配置 serviceUrl
     @JsonIgnore
     private transient ServiceUrlProvider serviceUrlProvider;
 
@@ -92,37 +92,37 @@ public class ClientConfigurationData implements Serializable, Cloneable {
     @ApiModelProperty(
             name = "operationTimeoutMs",
             value = "Client operation timeout (in millisecond)."
-    )
+    )//操作超时时间
     private long operationTimeoutMs = 30000;
 
     @ApiModelProperty(
             name = "statsIntervalSeconds",
             value = " Interval to print client stats (in second)."
-    )
+    )//状态收集时间间隔
     private long statsIntervalSeconds = 60;
 
     @ApiModelProperty(
             name = "numIoThreads",
             value = "Number of IO threads."
-    )
+    )//生产者I/O线程数量
     private int numIoThreads = 1;
 
     @ApiModelProperty(
             name = "numListenerThreads",
             value = "Number of consumer listener threads."
-    )
+    )//消费者订阅线程数量
     private int numListenerThreads = 1;
 
     @ApiModelProperty(
             name = "connectionsPerBroker",
             value = "Number of connections established between the client and each Broker."
-    )
+    )//client 与每个 broker 的连接数量
     private int connectionsPerBroker = 1;
 
     @ApiModelProperty(
             name = "useTcpNoDelay",
             value = "Whether to use TCP NoDelay option."
-    )
+    )//Nagle算法
     private boolean useTcpNoDelay = true;
 
     @ApiModelProperty(
@@ -152,7 +152,7 @@ public class ClientConfigurationData implements Serializable, Cloneable {
             name = "concurrentLookupRequest",
             value = "The number of concurrent lookup requests that can be sent on each broker connection. "
                     + "Setting a maximum prevents overloading a broker."
-    )
+    )//lookup 请求并发数
     private int concurrentLookupRequest = 5000;
 
     @ApiModelProperty(

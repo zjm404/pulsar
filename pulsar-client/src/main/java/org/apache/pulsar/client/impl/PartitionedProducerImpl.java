@@ -68,15 +68,15 @@ public class PartitionedProducerImpl<T> extends ProducerBase<T> {
     public PartitionedProducerImpl(PulsarClientImpl client, String topic, ProducerConfigurationData conf, int numPartitions,
             CompletableFuture<Producer<T>> producerCreatedFuture, Schema<T> schema, ProducerInterceptors interceptors) {
         super(client, topic, conf, producerCreatedFuture, schema, interceptors);
-        this.producers = Lists.newArrayListWithCapacity(numPartitions);
+        this.producers = Lists.newArrayListWithCapacity(numPartitions);//创建和分区数量一样的producer
         this.topicMetadata = new TopicMetadataImpl(numPartitions);
         this.routerPolicy = getMessageRouter();
         stats = client.getConfiguration().getStatsIntervalSeconds() > 0 ? new ProducerStatsRecorderImpl() : null;
-
+        //计算每个分区最大处理消息数
         int maxPendingMessages = Math.min(conf.getMaxPendingMessages(),
                 conf.getMaxPendingMessagesAcrossPartitions() / numPartitions);
         conf.setMaxPendingMessages(maxPendingMessages);
-        start();
+        start();//每个分区启动一个无分区Producer，用于发送消息
 
         // start track and auto subscribe partition increasement
         if (conf.isAutoUpdatePartitions()) {
@@ -125,11 +125,11 @@ public class PartitionedProducerImpl<T> extends ProducerBase<T> {
 
     private void start() {
         AtomicReference<Throwable> createFail = new AtomicReference<Throwable>();
-        AtomicInteger completed = new AtomicInteger();
+        AtomicInteger completed = new AtomicInteger();//为每个partition创建producer
         for (int partitionIndex = 0; partitionIndex < topicMetadata.numPartitions(); partitionIndex++) {
-            String partitionName = TopicName.get(topic).getPartition(partitionIndex).toString();
+            String partitionName = TopicName.get(topic).getPartition(partitionIndex).toString();//获取分区名字
             ProducerImpl<T> producer = client.newProducerImpl(partitionName, partitionIndex,
-                    conf, schema, interceptors, new CompletableFuture<>());
+                    conf, schema, interceptors, new CompletableFuture<>());//创建producer
             producers.add(producer);
             producer.producerCreatedFuture().handle((prod, createException) -> {
                 if (createException != null) {
@@ -141,12 +141,12 @@ public class PartitionedProducerImpl<T> extends ProducerBase<T> {
                 // due to any
                 // failure in one of the partitions and close the successfully
                 // created partitions
-                if (completed.incrementAndGet() == topicMetadata.numPartitions()) {
+                if (completed.incrementAndGet() == topicMetadata.numPartitions()) {//所有的分区都创建了producer
                     if (createFail.get() == null) {
                         setState(State.Ready);
                         log.info("[{}] Created partitioned producer", topic);
                         producerCreatedFuture().complete(PartitionedProducerImpl.this);
-                    } else {
+                    } else {//如果有一个创建失败，则关闭之前创建成功的所有producer,然后返回异常
                         log.error("[{}] Could not create partitioned producer.", topic, createFail.get().getCause());
                         closeAsync().handle((ok, closeException) -> {
                             producerCreatedFuture().completeExceptionally(createFail.get());

@@ -40,7 +40,7 @@ public class TransactionExample {
 
     public static void main(String[] args) throws Exception {
         String serviceUrl = "pulsar://localhost:6650";
-
+        //调用close，执行结束后自动关闭
         @Cleanup
         PulsarClient client = PulsarClient.builder()
             .serviceUrl(serviceUrl)

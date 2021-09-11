@@ -29,14 +29,14 @@ import org.apache.pulsar.client.impl.HandlerState.State;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConnectionHandler {
+public class ConnectionHandler {//用于原子更新clientCnx
     private static final AtomicReferenceFieldUpdater<ConnectionHandler, ClientCnx> CLIENT_CNX_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ConnectionHandler.class, ClientCnx.class, "clientCnx");
     @SuppressWarnings("unused")
     private volatile ClientCnx clientCnx = null;
 
-    protected final HandlerState state;
-    protected final Backoff backoff;
+    protected final HandlerState state;//客户端socket 具柄状态
+    protected final Backoff backoff;//用于自动重连的时间组件
     private static final AtomicLongFieldUpdater<ConnectionHandler> EPOCH_UPDATER = AtomicLongFieldUpdater
             .newUpdater(ConnectionHandler.class, "epoch");
     private volatile long epoch = 0L;
@@ -61,14 +61,14 @@ public class ConnectionHandler {
             log.warn("[{}] [{}] Client cnx already set, ignoring reconnection request", state.topic, state.getHandlerName());
             return;
         }
-
+        //判断是否可以重连，Uninitialized；Connecting;Ready 才可以重新连
         if (!isValidStateForReconnection()) {
             // Ignore connection closed when we are shutting down
             log.info("[{}] [{}] Ignoring reconnection request (state: {})", state.topic, state.getHandlerName(), state.getState());
             return;
         }
 
-        try {
+        try {//根据topicName
             state.client.getConnection(state.topic) //
                     .thenAccept(cnx -> connection.connectionOpened(cnx)) //
                     .exceptionally(this::handleConnectionError);

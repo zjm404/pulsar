@@ -58,22 +58,22 @@ import org.apache.pulsar.common.util.netty.EventLoopUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConnectionPool implements Closeable {
+public class ConnectionPool implements Closeable {//保存链接地址和ClientCnx的映射关系，ClientCnx是Pulsar封装的Netty处理读请求的接口
     protected final ConcurrentHashMap<InetSocketAddress, ConcurrentMap<Integer, CompletableFuture<ClientCnx>>> pool;
 
-    private final Bootstrap bootstrap;
-    private final PulsarChannelInitializer channelInitializerHandler;
+    private final Bootstrap bootstrap;//Netty网络通信层
+    private final PulsarChannelInitializer channelInitializerHandler;//Netty服务编排层注册处理io的handler
     private final ClientConfigurationData clientConfig;
-    private final EventLoopGroup eventLoopGroup;
-    private final int maxConnectionsPerHosts;
+    private final EventLoopGroup eventLoopGroup;//netty 事件调度
+    private final int maxConnectionsPerHosts;//每个注解的最大连接数
     private final boolean isSniProxy;
 
-    protected final DnsNameResolver dnsResolver;
-
+    protected final DnsNameResolver dnsResolver;//根据dns name 解析出ip
+    //配置client的默认参数
     public ConnectionPool(ClientConfigurationData conf, EventLoopGroup eventLoopGroup) throws PulsarClientException {
         this(conf, eventLoopGroup, () -> new ClientCnx(conf, eventLoopGroup));
     }
-
+    //配置 netty BootStrap
     public ConnectionPool(ClientConfigurationData conf, EventLoopGroup eventLoopGroup,
             Supplier<ClientCnx> clientCnxSupplier) throws PulsarClientException {
         this.eventLoopGroup = eventLoopGroup;
@@ -145,16 +145,16 @@ public class ConnectionPool implements Closeable {
      */
     public CompletableFuture<ClientCnx> getConnection(InetSocketAddress logicalAddress,
             InetSocketAddress physicalAddress) {
-        if (maxConnectionsPerHosts == 0) {
+        if (maxConnectionsPerHosts == 0) {//如果每个注解的最大连接数为0，则直接创建连接
             // Disable pooling
             return createConnection(logicalAddress, physicalAddress, -1);
         }
-
+        //否则，创建一个随机数据作为key,随机数%每个主机的最大连接数
         final int randomKey = signSafeMod(random.nextInt(), maxConnectionsPerHosts);
-
-        return pool.computeIfAbsent(logicalAddress, a -> new ConcurrentHashMap<>()) //
+        //连接池里如果broker代理标签，没有对应的value，则创建新ConcurrentMap<Integer, CompletableFuture<ClientCnx>对象，
+        return pool.computeIfAbsent(logicalAddress, a -> new ConcurrentHashMap<>())
                 .computeIfAbsent(randomKey, k -> createConnection(logicalAddress, physicalAddress, randomKey));
-    }
+    }//如果randomKey没有对应的value，则使用createConnection(logicalAddress, physicalAddress, randomKey)方法创建一个CompletableFuture<ClientCnx>
 
     private CompletableFuture<ClientCnx> createConnection(InetSocketAddress logicalAddress,
             InetSocketAddress physicalAddress, int connectionKey) {
@@ -163,7 +163,7 @@ public class ConnectionPool implements Closeable {
         }
 
         final CompletableFuture<ClientCnx> cnxFuture = new CompletableFuture<>();
-
+        // DNS 解析主机名获取ip数组，挨个尝试连接，直到连接成功，返回连接成功的ip
         // Trigger async connect to broker
         createConnection(physicalAddress).thenAccept(channel -> {
             log.info("[{}] Connected to server", channel);
@@ -172,7 +172,7 @@ public class ConnectionPool implements Closeable {
                 // Remove connection from pool when it gets closed
                 if (log.isDebugEnabled()) {
                     log.debug("Removing closed connection from pool: {}", v);
-                }
+                }//连接成功，从ConnectionPool中移除对应的对象
                 cleanupConnection(logicalAddress, connectionKey, cnxFuture);
             });
 

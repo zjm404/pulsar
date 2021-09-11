@@ -86,7 +86,7 @@ public class BinaryProtoLookupService implements LookupService {
      * @return broker-socket-address that serves given topic
      */
     public CompletableFuture<Pair<InetSocketAddress, InetSocketAddress>> getBroker(TopicName topicName) {
-        return findBroker(serviceNameResolver.resolveHost(), false, topicName, 0);
+        return findBroker(serviceNameResolver.resolveHost(), false, topicName, 0);//解析域名获取Ip
     }
 
     /**
@@ -106,11 +106,11 @@ public class BinaryProtoLookupService implements LookupService {
                     new PulsarClientException.LookupException("Too many redirects: " + maxLookupRedirects));
             return addressFuture;
         }
-
+        //连接池连接对应的ip，连接成功后进行以下
         client.getCnxPool().getConnection(socketAddress).thenAccept(clientCnx -> {
             long requestId = client.newRequestId();
             ByteBuf request = Commands.newLookup(topicName.toString(), listenerName, authoritative, requestId);
-            clientCnx.newLookup(request, requestId).whenComplete((r, t) -> {
+            clientCnx.newLookup(request, requestId).whenComplete((r, t) -> {//发送lookup命令
                 if (t != null) {
                     // lookup failed
                     log.warn("[{}] failed to send lookup request : {}", topicName.toString(), t.getMessage());
@@ -132,7 +132,7 @@ public class BinaryProtoLookupService implements LookupService {
 
                         InetSocketAddress responseBrokerAddress = InetSocketAddress.createUnresolved(uri.getHost(), uri.getPort());
 
-                        // (2) redirect to given address if response is: redirect
+                        // (2) redirect to given address if response is: redirect 如果需要重定向，则重定向到新地址继续查找broker地址
                         if (r.redirect) {
                             findBroker(responseBrokerAddress, r.authoritative, topicName, redirectCount + 1)
                                 .thenAccept(addressFuture::complete).exceptionally((lookupException) -> {
@@ -152,10 +152,10 @@ public class BinaryProtoLookupService implements LookupService {
                         } else {
                             // (3) received correct broker to connect
                             if (r.proxyThroughServiceUrl) {
-                                // Connect through proxy
+                                // Connect through proxy 如果是通过broker连接则通过proxy连接
                                 addressFuture.complete(Pair.of(responseBrokerAddress, socketAddress));
                             } else {
-                                // Normal result with direct connection to broker
+                                // Normal result with direct connection to broker 否则直接连接
                                 addressFuture.complete(Pair.of(responseBrokerAddress, responseBrokerAddress));
                             }
                         }

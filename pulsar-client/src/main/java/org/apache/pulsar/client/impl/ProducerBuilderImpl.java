@@ -98,20 +98,20 @@ public class ProducerBuilderImpl<T> implements ProducerBuilder<T> {
 
     @Override
     public CompletableFuture<Producer<T>> createAsync() {
-        // config validation
+        // config validation 检查配置是否有冲突，批量发送消息和分块发送消息不可同时开启
         checkArgument(!(conf.isBatchingEnabled() && conf.isChunkingEnabled()),
                 "Batching and chunking of messages can't be enabled together");
-        if (conf.getTopicName() == null) {
+        if (conf.getTopicName() == null) {//topicName不可为null,lookup需要使用
             return FutureUtil
                     .failedFuture(new IllegalArgumentException("Topic name must be set on the producer builder"));
         }
 
         try {
-            setMessageRoutingMode();
+            setMessageRoutingMode();//设置消息路由方式，这里模式使用轮询
         } catch(PulsarClientException pce) {
             return FutureUtil.failedFuture(pce);
         }
-
+        //设置一些过滤器
         return interceptorList == null || interceptorList.size() == 0 ?
                 client.createProducerAsync(conf, schema, null) :
                 client.createProducerAsync(conf, schema, new ProducerInterceptors(interceptorList));

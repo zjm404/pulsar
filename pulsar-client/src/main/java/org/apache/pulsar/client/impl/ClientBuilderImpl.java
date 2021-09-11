@@ -62,7 +62,7 @@ public class ClientBuilderImpl implements ClientBuilder {
             } else {
                 conf.setServiceUrl(conf.getServiceUrlProvider().getServiceUrl());
             }
-        }
+        }//创建 client
         PulsarClient client = new PulsarClientImpl(conf);
         if (conf.getServiceUrlProvider() != null) {
             conf.getServiceUrlProvider().initialize(client);

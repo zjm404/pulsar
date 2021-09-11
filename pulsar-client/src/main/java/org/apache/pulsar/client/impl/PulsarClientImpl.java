@@ -129,11 +129,11 @@ public class PulsarClientImpl implements PulsarClient {
 
     @Getter
     private TransactionCoordinatorClientImpl tcClient;
-
+    //配置EventLoopGroup
     public PulsarClientImpl(ClientConfigurationData conf) throws PulsarClientException {
         this(conf, getEventLoopGroup(conf), true);
     }
-
+    //配置连接池
     public PulsarClientImpl(ClientConfigurationData conf, EventLoopGroup eventLoopGroup) throws PulsarClientException {
         this(conf, eventLoopGroup, new ConnectionPool(conf, eventLoopGroup), null, false, true);
     }
@@ -147,7 +147,7 @@ public class PulsarClientImpl implements PulsarClient {
             throws PulsarClientException {
         this(conf, eventLoopGroup, cnxPool, timer, false, false);
     }
-
+    //配置连接池用于管理创建的client
     private PulsarClientImpl(ClientConfigurationData conf, EventLoopGroup eventLoopGroup, boolean createdEventLoopGroup)
             throws PulsarClientException {
         this(conf, eventLoopGroup, new ConnectionPool(conf, eventLoopGroup), null, createdEventLoopGroup, true);
@@ -192,7 +192,7 @@ public class PulsarClientImpl implements PulsarClient {
                     throw new PulsarClientException(e);
                 }
             }
-
+            //限制创建消息的速度，创建时计数器+1，创建完成时计数器-1
             memoryLimitController = new MemoryLimitController(conf.getMemoryLimitBytes());
             state.set(State.Open);
         } catch (Throwable t) {
@@ -274,28 +274,28 @@ public class PulsarClientImpl implements PulsarClient {
             return FutureUtil.failedFuture(
                 new PulsarClientException.InvalidConfigurationException("Producer configuration undefined"));
         }
-
+        //检查配置，如果是 AutoConsumeSchema 则抛出异常
         if (schema instanceof AutoConsumeSchema) {
             return FutureUtil.failedFuture(
                 new PulsarClientException.InvalidConfigurationException("AutoConsumeSchema is only used by consumers to detect schemas automatically"));
         }
-
+        //检查Client 是否是开启状态
         if (state.get() != State.Open) {
             return FutureUtil.failedFuture(new PulsarClientException.AlreadyClosedException("Client already closed : state = " + state.get()));
         }
 
         String topic = conf.getTopicName();
-
+        //校验topic
         if (!TopicName.isValid(topic)) {
             return FutureUtil.failedFuture(
                 new PulsarClientException.InvalidTopicNameException("Invalid topic name: '" + topic + "'"));
         }
-
+        //如果是否自动获取 Schema，则进行
         if (schema instanceof AutoProduceBytesSchema) {
             AutoProduceBytesSchema autoProduceBytesSchema = (AutoProduceBytesSchema) schema;
-            if (autoProduceBytesSchema.schemaInitialized()) {
+            if (autoProduceBytesSchema.schemaInitialized()) {//如果schema已经初始化则直接创建
                 return createProducerAsync(topic, conf, schema, interceptors);
-            }
+            }//否则根据topicName去查找注册的schema,如果没有，则使用byte[]形式，也就是不做任何的编解码，只是一个byte[]数组
             return lookup.getSchema(TopicName.get(conf.getTopicName()))
                     .thenCompose(schemaInfoOptional -> {
                         if (schemaInfoOptional.isPresent()) {
@@ -316,17 +316,17 @@ public class PulsarClientImpl implements PulsarClient {
                                                                    Schema<T> schema,
                                                                    ProducerInterceptors interceptors) {
         CompletableFuture<Producer<T>> producerCreatedFuture = new CompletableFuture<>();
-
+        //lookupService根据topicName查找partition数量
         getPartitionedTopicMetadata(topic).thenAccept(metadata -> {
             if (log.isDebugEnabled()) {
                 log.debug("[{}] Received topic metadata. partitions: {}", topic, metadata.partitions);
             }
 
             ProducerBase<T> producer;
-            if (metadata.partitions > 0) {
+            if (metadata.partitions > 0) {//如果partition大于0，则创建
                 producer = newPartitionedProducerImpl(topic, conf, schema, interceptors, producerCreatedFuture,
                         metadata);
-            } else {
+            } else {//否则创建
                 producer = newProducerImpl(topic, -1, conf, schema, interceptors, producerCreatedFuture);
             }
 
@@ -825,9 +825,9 @@ public class PulsarClientImpl implements PulsarClient {
     }
 
     public CompletableFuture<ClientCnx> getConnection(final String topic) {
-        TopicName topicName = TopicName.get(topic);
-        return lookup.getBroker(topicName)
-                .thenCompose(pair -> cnxPool.getConnection(pair.getLeft(), pair.getRight()));
+        TopicName topicName = TopicName.get(topic);//根据topic获取topicName
+        return lookup.getBroker(topicName)//根据topicName获取存活的Broker的地址
+                .thenCompose(pair -> cnxPool.getConnection(pair.getLeft(), pair.getRight()));//从连接池中获取连接连接broker
     }
 
     /** visible for pulsar-functions **/
@@ -938,7 +938,7 @@ public class PulsarClientImpl implements PulsarClient {
 
     private static EventLoopGroup getEventLoopGroup(ClientConfigurationData conf) {
         ThreadFactory threadFactory = getThreadFactory("pulsar-client-io");
-        return EventLoopUtil.newEventLoopGroup(conf.getNumIoThreads(), conf.isEnableBusyWait(), threadFactory);
+        return EventLoopUtil.newEventLoopGroup(conf.getNumIoThreads(), conf.isEnableBusyWait(), threadFactory);//选择Epoll 或者 Nio
     }
 
     private static ThreadFactory getThreadFactory(String poolName) {

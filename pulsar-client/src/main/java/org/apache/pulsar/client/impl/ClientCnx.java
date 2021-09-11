@@ -191,7 +191,7 @@ public class ClientCnx extends PulsarHandler {
     }
 
     public ClientCnx(ClientConfigurationData conf, EventLoopGroup eventLoopGroup, int protocolVersion) {
-        super(conf.getKeepAliveIntervalSeconds(), TimeUnit.SECONDS);
+        super(conf.getKeepAliveIntervalSeconds(), TimeUnit.SECONDS);//配置连接活跃时间
         checkArgument(conf.getMaxLookupRequest() > conf.getConcurrentLookupRequest());
         this.pendingLookupRequestSemaphore = new Semaphore(conf.getConcurrentLookupRequest(), false);
         this.maxLookupRequestSemaphore = new Semaphore(conf.getMaxLookupRequest() - conf.getConcurrentLookupRequest(), false);
